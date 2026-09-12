@@ -15,7 +15,11 @@ class PacketRecord:
     src_port: int | None = None
     dst_port: int | None = None
     dns_query: str = ""
+    dns_is_response: bool = False
+    dns_rcode: str = ""
     server_name: str = ""
+    tls_version: str = ""
+    quic_version: str = ""
     http_host: str = ""
     http_uri: str = ""
     tcp_flags: str = ""

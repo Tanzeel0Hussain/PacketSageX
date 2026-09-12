@@ -13,7 +13,7 @@ from .banner import TAGLINE, render_banner
 from .capture import CaptureError
 from .correlate import correlate_reports
 from .interfaces import resolve_live_interface, select_live_interface
-from .live import _open_report, run_live_capture
+from .live import _open_report, _restore_session_ownership, run_live_capture
 from .nmap_import import NmapImportError, parse_nmap_xml
 from .pdf_report import attach_pdf_actions, write_pdf
 from .reporting import write_csv, write_html, write_json
@@ -191,6 +191,7 @@ def main(argv: list[str] | None = None) -> int:
                         report_data = json.loads(analysis_path.read_text(encoding="utf-8"))
                         pdf_path = write_pdf(report_data, session / "report.pdf")
                         attach_pdf_actions(html_path, pdf_path)
+                        _restore_session_ownership(session)
                         print(f"PDF     : {pdf_path}")
                         if not args.no_open:
                             if _open_report(html_path):

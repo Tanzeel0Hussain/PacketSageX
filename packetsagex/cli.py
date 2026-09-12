@@ -13,8 +13,9 @@ from .banner import TAGLINE, render_banner
 from .capture import CaptureError
 from .correlate import correlate_reports
 from .interfaces import resolve_live_interface, select_live_interface
-from .live import run_live_capture
+from .live import _open_report, run_live_capture
 from .nmap_import import NmapImportError, parse_nmap_xml
+from .pdf_report import attach_pdf_actions, write_pdf
 from .reporting import write_csv, write_html, write_json
 
 # Backward-compatible/internal test alias.
@@ -54,6 +55,11 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--json", dest="json_path")
     analyze.add_argument("--csv", dest="csv_path")
     analyze.add_argument("--html", dest="html_path")
+    analyze.add_argument(
+        "--pdf",
+        dest="pdf_path",
+        help="Write a native paginated PDF report. When --html is used, a sibling PDF is created automatically.",
+    )
 
     live = sub.add_parser("live", help="Monitor live traffic until Ctrl+C")
     live.add_argument(
@@ -110,9 +116,15 @@ def main(argv: list[str] | None = None) -> int:
             scapy_state = "available"
         except Exception:
             scapy_state = "not available"
+        try:
+            import reportlab  # noqa: F401
+            pdf_state = "available"
+        except Exception:
+            pdf_state = "not available"
         print(f"Scapy   : {scapy_state}")
+        print(f"PDF     : {pdf_state} (native professional report engine)")
         print("Live    : Scapy capture engine; runs until Ctrl+C")
-        print("Reports : timestamped JSON/CSV/HTML + capture, HTML auto-opens after live stop")
+        print("Reports : timestamped JSON/CSV/HTML/PDF + capture, HTML auto-opens after live stop")
         print("TLS keys: supported through TShark when you provide your own authorized key log")
         return 0
 
@@ -130,8 +142,23 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"JSON    : {write_json(report, args.json_path)}")
             if args.csv_path:
                 print(f"CSV     : {write_csv(report, args.csv_path)}")
+
+            pdf_target: Path | None = None
+            if args.pdf_path:
+                pdf_target = Path(args.pdf_path)
+            elif args.html_path:
+                pdf_target = Path(args.html_path).with_suffix(".pdf")
+
+            written_pdf: Path | None = None
+            if pdf_target is not None:
+                written_pdf = write_pdf(report, pdf_target)
+                print(f"PDF     : {written_pdf}")
+
             if args.html_path:
-                print(f"HTML    : {write_html(report, args.html_path)}")
+                html_path = write_html(report, args.html_path)
+                if written_pdf is not None:
+                    attach_pdf_actions(html_path, written_pdf)
+                print(f"HTML    : {html_path}")
             return 0
 
         if args.command == "live":
@@ -140,15 +167,37 @@ def main(argv: list[str] | None = None) -> int:
             if capture_interface != args.interface:
                 print(f"Interface: {args.interface} -> {capture_interface} (auto-selected by Scapy)")
             print("Starting continuous live capture. Press Ctrl+C whenever you want to stop.\n")
-            return run_live_capture(
+
+            reports_root = Path(args.reports_dir).expanduser().resolve()
+            before = set(reports_root.iterdir()) if reports_root.exists() else set()
+            result = run_live_capture(
                 interface=capture_interface,
                 refresh=args.refresh,
                 view=args.view,
                 bpf_filter=args.bpf_filter,
                 save=args.save,
                 reports_dir=args.reports_dir,
-                open_report=not args.no_open,
+                open_report=False,
             )
+            if result == 0 and reports_root.exists():
+                candidates = [path for path in reports_root.iterdir() if path.is_dir() and path not in before]
+                if not candidates:
+                    candidates = [path for path in reports_root.iterdir() if path.is_dir()]
+                if candidates:
+                    session = max(candidates, key=lambda path: path.stat().st_mtime)
+                    analysis_path = session / "analysis.json"
+                    html_path = session / "report.html"
+                    if analysis_path.exists() and html_path.exists():
+                        report_data = json.loads(analysis_path.read_text(encoding="utf-8"))
+                        pdf_path = write_pdf(report_data, session / "report.pdf")
+                        attach_pdf_actions(html_path, pdf_path)
+                        print(f"PDF     : {pdf_path}")
+                        if not args.no_open:
+                            if _open_report(html_path):
+                                print("Report opened automatically in your default browser.")
+                            else:
+                                print(f"Open the report manually: {html_path}")
+            return result
 
         if args.command == "nmap":
             _print_banner()

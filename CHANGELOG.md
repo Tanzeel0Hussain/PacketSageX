@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+- Reworked terminal branding with a clearer cyber-console `PACKETSAGEX` banner, status line, and ANSI color in interactive terminals.
+- Rebuilt standalone HTML reports around tabs for **Overview**, **Security**, **Endpoints**, **DNS**, **TLS / QUIC**, and **Flows** to reduce long on-screen scrolling.
+- Added a **Print / Save PDF** action. Print mode automatically expands every tab, switches to a clean light layout, repeats table headers where supported, and includes the complete report.
+- Added traffic-category summary data to the Overview tab and improved report metadata, responsive layout, empty states, and defensive interpretation notes.
+- Preserved full flow search and Top/Bottom sorting inside the Flows tab.
+- Added regression coverage for report tabs, print/PDF controls, and print CSS.
+
 ## 0.4.2 — 2026-09-12
 
 - Fixed a TShark fields-output parsing bug that could produce `Backend: tshark` with `0` packets even when the staged capture was valid and readable.

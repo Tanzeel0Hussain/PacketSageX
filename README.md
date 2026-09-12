@@ -14,7 +14,7 @@ PacketSageX is an open-source defensive network-forensics project for PCAP/PCAPN
 - Automatic active-interface selection when Linux users request `--interface any` with the Scapy live engine.
 - TShark-first offline analysis with automatic Scapy fallback where possible.
 - On Linux, if TShark is blocked from reading an otherwise user-readable capture path, PacketSageX securely stages a temporary `0600` copy and retries automatically; the temporary copy is removed after analysis.
-- TShark field parsing now uses native tab-separated output so valid captures no longer appear as a false `0 packets` result on builds that interpret a literal `\\t` separator differently.
+- TShark field parsing uses native tab-separated output so valid captures do not appear as a false `0 packets` result on affected builds.
 - Bidirectional flow/session summaries with source, destination, protocol, packets, bytes, duration, likely traffic, confidence, and evidence.
 - **Endpoint Inventory** with local/public/multicast scope, activity direction, peers, protocols, packets, and bytes.
 - **DNS Analytics** with query/response counts, unique domains, top queries, top clients, response codes, and NXDOMAIN count.
@@ -24,7 +24,11 @@ PacketSageX is an open-source defensive network-forensics project for PCAP/PCAPN
 - Nmap XML import and capture-to-scan correlation.
 - JSON, CSV, and searchable standalone HTML reports.
 - Timestamped report folder for every live session.
-- HTML report automatically opens after Ctrl+C and includes search plus Top/Bottom sorting.
+- HTML report automatically opens after Ctrl+C.
+- **Cyber-console terminal branding** with a clearer large `PACKETSAGEX` banner, status line, and ANSI color in interactive terminals.
+- **Tabbed HTML report** with Overview, Security, Endpoints, DNS, TLS / QUIC, and Flows sections so normal viewing does not require one long scroll.
+- **Print / Save PDF** action that expands every tab into a complete print-friendly report.
+- Flow search across Source, Destination, Protocol, Packets, Bytes, Likely Traffic, and Confidence, plus Top/Bottom sorting.
 - Authorized TLS key-log support through TShark for sessions that the user is legitimately allowed to decrypt.
 - CI tests on Python 3.11, 3.12, and 3.13.
 
@@ -76,24 +80,28 @@ reports/
     └── report.html
 ```
 
-The HTML report opens automatically and contains:
-
-```text
-Overview
-Security Findings
-Endpoint Inventory
-DNS Analytics
-TLS / QUIC Intelligence
-Flows
-```
-
-The flow table can search **Source, Destination, Protocol, Packets, Bytes, Likely Traffic, and Confidence**, and can sort Top/Bottom by selected fields.
-
 Stream mode:
 
 ```bash
 sudo .venv/bin/packetsagex live --interface any --view stream
 ```
+
+## Tabbed HTML report and printing
+
+The standalone report now uses tabs instead of displaying every section in one very long page:
+
+```text
+Overview
+Security
+Endpoints
+DNS
+TLS / QUIC
+Flows
+```
+
+The **Flows** tab keeps the existing search and Top/Bottom sorting controls. The **Overview** tab includes capture totals and traffic-category summaries.
+
+Use the **Print / Save PDF** button in the report header to create a formal report. Print mode automatically expands every tab, switches to a clean light layout, repeats table headers where supported, and includes the complete analysis even though only one tab is visible on screen.
 
 ## Offline capture analysis
 
@@ -166,6 +174,7 @@ PacketSageX/
 │   │   ├── classifier.py
 │   │   └── signatures.json
 │   ├── analysis.py
+│   ├── banner.py
 │   ├── live.py
 │   ├── reporting.py
 │   ├── security.py

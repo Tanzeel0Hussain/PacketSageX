@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import shutil
 import sys
 from pathlib import Path
 
 from . import __version__
 from .analysis import analyze_capture
-from .banner import BANNER, TAGLINE
+from .banner import TAGLINE, render_banner
 from .capture import CaptureError
 from .correlate import correlate_reports
 from .interfaces import resolve_live_interface, select_live_interface
@@ -21,8 +22,9 @@ _select_live_interface = select_live_interface
 
 
 def _print_banner() -> None:
-    print(BANNER)
-    print(f"{TAGLINE}  |  v{__version__}\n")
+    use_color = sys.stdout.isatty() and "NO_COLOR" not in os.environ
+    print(render_banner(__version__, color=use_color))
+    print()
 
 
 def _summary(report: dict[str, object]) -> None:

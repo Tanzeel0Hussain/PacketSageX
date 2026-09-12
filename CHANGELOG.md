@@ -1,13 +1,15 @@
 # Changelog
 
-## Unreleased
+## 0.4.3 — 2026-09-12
 
-- Reworked terminal branding with a clearer cyber-console `PACKETSAGEX` banner, status line, and ANSI color in interactive terminals.
-- Rebuilt standalone HTML reports around tabs for **Overview**, **Security**, **Endpoints**, **DNS**, **TLS / QUIC**, and **Flows** to reduce long on-screen scrolling.
-- Added a **Print / Save PDF** action. Print mode automatically expands every tab, switches to a clean light layout, repeats table headers where supported, and includes the complete report.
-- Added traffic-category summary data to the Overview tab and improved report metadata, responsive layout, empty states, and defensive interpretation notes.
-- Preserved full flow search and Top/Bottom sorting inside the Flows tab.
-- Added regression coverage for report tabs, print/PDF controls, and print CSS.
+- Added native professional PDF report generation using ReportLab instead of relying on browser Print / Save PDF.
+- HTML reports now provide **Open Professional PDF** and **Save PDF** actions for the generated report document.
+- Added `--pdf` to offline analysis and automatic sibling PDF generation when `--html` is used.
+- Live sessions now create `report.pdf` before the HTML report is auto-opened.
+- Professional PDFs include a branded cover page, executive summary, security findings, endpoint inventory, DNS analytics, TLS/QUIC intelligence, complete flow details, repeated table headers, page numbers, and PacketSageX headers/footers.
+- Added ReportLab as a runtime dependency and added a native PDF capability check to `packetsagex doctor`.
+- Added automated coverage that verifies real `%PDF-` output and the HTML-to-PDF report actions.
+- Retained the cyber-console terminal banner and tabbed interactive HTML report introduced after v0.4.2.
 
 ## 0.4.2 — 2026-09-12
 

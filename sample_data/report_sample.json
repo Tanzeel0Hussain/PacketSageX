@@ -1,0 +1,17 @@
+{
+  "schema": "packetsagex.report.v1",
+  "source": "demo.pcapng",
+  "backend": "tshark",
+  "packet_count": 1248,
+  "byte_count": 1843200,
+  "flow_count": 37,
+  "protocols": {"TLS": 720, "DNS": 150, "TCP": 120, "QUIC": 258},
+  "traffic_categories": {"Web / HTTPS": 15, "YouTube / Google Video": 8, "DNS": 4, "Unknown": 10},
+  "security_findings": [
+    {"severity":"medium","type":"cleartext-service","title":"Potential cleartext HTTP traffic","evidence":"Observed service port 80 in capture metadata."}
+  ],
+  "top_endpoints": [{"endpoint":"192.168.1.10","packets":950},{"endpoint":"142.250.180.14","packets":420}],
+  "flows": [
+    {"src":"192.168.1.10","dst":"142.250.180.14","protocol":"QUIC","src_port":53000,"dst_port":443,"packets":258,"bytes":850000,"duration":12.4,"classification":"YouTube / Google Video","confidence":91,"evidence":["domain hint: googlevideo.com","service port: 443"]}
+  ]
+}

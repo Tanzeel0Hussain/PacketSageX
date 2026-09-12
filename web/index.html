@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="description" content="PacketSageX browser report viewer and Nmap XML inspector." />
+  <title>PacketSageX — Network Traffic Intelligence</title>
+  <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <img src="assets/logo.svg" alt="PacketSageX logo" class="logo" />
+    <div><p class="eyebrow">OPEN-SOURCE NETWORK FORENSICS</p><h1>PacketSageX</h1><p>Inspect exported PacketSageX reports and Nmap XML directly in your browser.</p></div>
+  </header>
+  <main>
+    <section class="notice">The full PCAP/PCAPNG engine runs in the CLI with TShark/Scapy. This GitHub Pages build is a safe static viewer and Nmap XML inspector; files stay in your browser.</section>
+    <section class="controls card">
+      <label class="upload">Load PacketSageX JSON<input id="reportFile" type="file" accept=".json,application/json" /></label>
+      <label class="upload">Load Nmap XML<input id="nmapFile" type="file" accept=".xml,text/xml" /></label>
+      <button id="demoBtn">Load Demo Report</button>
+      <button id="clearBtn" class="secondary">Clear</button>
+    </section>
+    <section id="stats" class="stats"></section>
+    <section class="grid">
+      <article class="card"><h2>Traffic Categories</h2><div id="categories" class="bars empty">Load a report to begin.</div></article>
+      <article class="card"><h2>Security Findings</h2><div id="findings" class="empty">No report loaded.</div></article>
+    </section>
+    <section class="card"><div class="section-title"><h2>Top Flows</h2><input id="filter" placeholder="Filter flows…" /></div><div class="table-wrap"><table><thead><tr><th>Source</th><th>Destination</th><th>Protocol</th><th>Packets</th><th>Bytes</th><th>Likely Traffic</th><th>Confidence</th></tr></thead><tbody id="flowRows"></tbody></table></div></section>
+    <section class="card"><h2>Nmap Import</h2><div id="nmapOutput" class="empty">Load an Nmap XML file exported with <code>nmap -oX scan.xml …</code>.</div></section>
+  </main>
+  <footer>PacketSageX · Evidence-based classification · Authorized traffic analysis only</footer>
+  <script src="app.js"></script>
+</body>
+</html>

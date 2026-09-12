@@ -27,6 +27,8 @@ def test_live_monitor_tracks_packets_flows_and_web_classification():
     assert snap["flow_count"] == 1
     assert label == "Web / HTTPS"
     assert confidence >= 50
+    assert "dns" in snap
+    assert "encrypted" in snap
 
 
 def test_live_monitor_builds_report():
@@ -40,6 +42,9 @@ def test_live_monitor_builds_report():
     assert report["flows"][0]["src"] == "10.0.0.2"
     assert report["flows"][0]["dst"] == "1.1.1.1"
     assert report["flows"][0]["classification"] == "Web / HTTPS"
+    assert report["endpoint_inventory"]
+    assert "dns_analytics" in report
+    assert "tls_quic_intelligence" in report
 
 
 def test_timestamped_session_directories_are_unique(tmp_path):

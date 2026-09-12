@@ -11,9 +11,13 @@ from .analysis import analyze_capture
 from .banner import BANNER, TAGLINE
 from .capture import CaptureError
 from .correlate import correlate_reports
+from .interfaces import resolve_live_interface, select_live_interface
 from .live import run_live_capture
 from .nmap_import import NmapImportError, parse_nmap_xml
 from .reporting import write_csv, write_html, write_json
+
+# Backward-compatible/internal test alias.
+_select_live_interface = select_live_interface
 
 
 def _print_banner() -> None:
@@ -50,7 +54,12 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--html", dest="html_path")
 
     live = sub.add_parser("live", help="Monitor live traffic until Ctrl+C")
-    live.add_argument("-i", "--interface", default="any", help="Capture interface (default: any)")
+    live.add_argument(
+        "-i",
+        "--interface",
+        default="any",
+        help="Capture interface. 'any'/'auto' selects Scapy's active interface automatically.",
+    )
     live.add_argument("--refresh", type=float, default=1.0, help="Dashboard refresh interval in seconds")
     live.add_argument("--view", choices=["dashboard", "stream"], default="dashboard")
     live.add_argument("--filter", dest="bpf_filter", help="Optional BPF capture filter, e.g. 'tcp or udp'")
@@ -125,9 +134,12 @@ def main(argv: list[str] | None = None) -> int:
 
         if args.command == "live":
             _print_banner()
+            capture_interface = resolve_live_interface(args.interface)
+            if capture_interface != args.interface:
+                print(f"Interface: {args.interface} -> {capture_interface} (auto-selected by Scapy)")
             print("Starting continuous live capture. Press Ctrl+C whenever you want to stop.\n")
             return run_live_capture(
-                interface=args.interface,
+                interface=capture_interface,
                 refresh=args.refresh,
                 view=args.view,
                 bpf_filter=args.bpf_filter,
@@ -157,7 +169,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 print(json.dumps(result, indent=2))
             return 0
-    except (CaptureError, NmapImportError, RuntimeError, OSError, json.JSONDecodeError) as exc:
+    except (CaptureError, NmapImportError, RuntimeError, OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"PacketSageX error: {exc}", file=sys.stderr)
         return 2
 

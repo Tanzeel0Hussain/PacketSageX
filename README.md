@@ -7,13 +7,13 @@
 
 PacketSageX is an open-source defensive network traffic analysis and forensics tool.
 
-It can monitor live network traffic or analyze saved PCAP/PCAPNG captures and show useful information such as packets, flows, source and destination addresses, protocols, DNS activity, endpoints, likely traffic categories, security findings, and available TLS/QUIC metadata.
+It can monitor live traffic and it can also analyze packet-capture files saved or exported from **Wireshark** (`.pcap`, `.pcapng`, `.cap`). PacketSageX examines packets, flows, source and destination addresses, protocols, ports, DNS activity, visible HTTP/TLS/QUIC metadata, endpoints, likely traffic categories, and defensive security findings.
 
-When a live capture is stopped with **Ctrl+C**, PacketSageX saves the capture and creates JSON, CSV, HTML, and professional PDF reports inside a timestamped folder under `reports/`.
+For Wireshark files, PacketSageX also creates a searchable **Packet Explorer** in the HTML report and a `packets.csv` file with packet-level details and short packet descriptions.
 
-PacketSageX is designed for defensive analysis of networks and captures that you own or have permission to inspect. It does not break TLS, VPN, WhatsApp, or other encryption.
+PacketSageX is for captures and networks that you own or have permission to inspect. It does not break TLS, VPN, WhatsApp, or other encryption.
 
-## Install and Run
+## Install
 
 Ubuntu / Debian / Kali:
 
@@ -39,7 +39,38 @@ python -m pytest -q
 packetsagex doctor
 ```
 
-Start live network monitoring:
+## Analyze a Wireshark File
+
+Save or export the capture from Wireshark as `.pcap`, `.pcapng`, or `.cap`, then run:
+
+```bash
+cd ~/PacketSageX
+source .venv/bin/activate
+
+packetsagex wireshark "/path/to/capture.pcapng"
+```
+
+Example for a file in Downloads:
+
+```bash
+packetsagex wireshark ~/Downloads/capture.pcapng
+```
+
+PacketSageX analyzes the capture and creates a new folder like:
+
+```text
+reports/
+└── wireshark_2026-09-12_12-00-00/
+    ├── analysis.json
+    ├── flows.csv
+    ├── packets.csv
+    ├── report.html
+    └── report.pdf
+```
+
+The HTML report contains Overview, Security, Endpoints, DNS, TLS / QUIC, Flows, and **Packets** tabs. The Packets tab can be searched by packet number, source, destination, protocol, size, or packet description.
+
+## Run Live Monitoring
 
 ```bash
 cd ~/PacketSageX
@@ -47,23 +78,13 @@ source .venv/bin/activate
 sudo .venv/bin/packetsagex live --interface any
 ```
 
-PacketSageX will keep monitoring traffic until you press:
+Press:
 
 ```text
 Ctrl + C
 ```
 
-After stopping, a new report folder is created like this:
-
-```text
-reports/
-└── 2026-09-12_11-45-31/
-    ├── capture.pcap
-    ├── analysis.json
-    ├── flows.csv
-    ├── report.html
-    └── report.pdf
-```
+to stop the capture and generate the report files.
 
 ## Open the Latest HTML Report
 

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime
 import json
 import os
+from pathlib import Path
 import shutil
 import sys
-from pathlib import Path
 
 from . import __version__
 from .analysis import analyze_capture
@@ -13,8 +14,9 @@ from .banner import TAGLINE, render_banner
 from .capture import CaptureError
 from .correlate import correlate_reports
 from .interfaces import resolve_live_interface, select_live_interface
-from .live import _open_report, _restore_session_ownership, run_live_capture
+from .live import _open_report, run_live_capture
 from .nmap_import import NmapImportError, parse_nmap_xml
+from .packet_analysis import attach_packet_explorer, write_packets_csv
 from .pdf_report import attach_pdf_actions, write_pdf
 from .reporting import write_csv, write_html, write_json
 
@@ -42,6 +44,41 @@ def _summary(report: dict[str, object]) -> None:
         print(f"  [{str(item.get('severity','info')).upper()}] {item.get('title')}")
 
 
+def _packet_summary(report: dict[str, object]) -> None:
+    info = report.get("packet_analysis") or {}
+    if not isinstance(info, dict):
+        return
+    print("\nPacket intelligence:")
+    print(f"Duration : {float(info.get('duration_seconds', 0) or 0):.2f}s")
+    print(f"Avg size : {float(info.get('average_packet_bytes', 0) or 0):.1f} bytes")
+    print(f"Rate     : {float(info.get('packets_per_second', 0) or 0):.1f} packets/s")
+    print(
+        "Metadata : "
+        f"DNS {int(info.get('dns_packets', 0) or 0):,} | "
+        f"HTTP {int(info.get('http_packets', 0) or 0):,} | "
+        f"TLS {int(info.get('tls_metadata_packets', 0) or 0):,} | "
+        f"QUIC {int(info.get('quic_metadata_packets', 0) or 0):,}"
+    )
+    protocols = info.get("protocol_counts") or {}
+    if isinstance(protocols, dict) and protocols:
+        print("Protocols:")
+        for name, count in list(protocols.items())[:10]:
+            print(f"  {int(count):>6,}  {name}")
+
+
+def _new_analysis_directory(root: str | Path, prefix: str) -> Path:
+    root_path = Path(root).expanduser().resolve()
+    root_path.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
+    candidate = root_path / f"{prefix}_{stamp}"
+    suffix = 2
+    while candidate.exists():
+        candidate = root_path / f"{prefix}_{stamp}_{suffix:02d}"
+        suffix += 1
+    candidate.mkdir(parents=True)
+    return candidate
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="packetsagex", description=TAGLINE)
     parser.add_argument("--version", action="version", version=f"PacketSageX {__version__}")
@@ -54,12 +91,23 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--limit", type=int, help="Stop after N packets")
     analyze.add_argument("--json", dest="json_path")
     analyze.add_argument("--csv", dest="csv_path")
+    analyze.add_argument("--packets-csv", dest="packets_csv_path")
     analyze.add_argument("--html", dest="html_path")
     analyze.add_argument(
         "--pdf",
         dest="pdf_path",
         help="Write a native paginated PDF report. When --html is used, a sibling PDF is created automatically.",
     )
+
+    wireshark = sub.add_parser(
+        "wireshark",
+        help="Analyze a capture exported/saved by Wireshark and create packet-level reports",
+    )
+    wireshark.add_argument("capture", help="Wireshark .pcap, .pcapng, or .cap file")
+    wireshark.add_argument("--backend", choices=["auto", "tshark", "scapy"], default="auto")
+    wireshark.add_argument("--tls-keylog", help="Authorized NSS/SSLKEYLOGFILE for decryptable TLS sessions")
+    wireshark.add_argument("--reports-dir", default="reports", help="Output root folder (default: reports)")
+    wireshark.add_argument("--no-open", action="store_true", help="Do not open the generated HTML report")
 
     live = sub.add_parser("live", help="Monitor live traffic until Ctrl+C")
     live.add_argument(
@@ -124,7 +172,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Scapy   : {scapy_state}")
         print(f"PDF     : {pdf_state} (native professional report engine)")
         print("Live    : Scapy capture engine; runs until Ctrl+C")
-        print("Reports : timestamped JSON/CSV/HTML/PDF + capture, HTML auto-opens after live stop")
+        print("Wireshark: .pcap/.pcapng/.cap packet analysis supported")
+        print("Reports : JSON/CSV/HTML/PDF + packet CSV")
         print("TLS keys: supported through TShark when you provide your own authorized key log")
         return 0
 
@@ -138,10 +187,13 @@ def main(argv: list[str] | None = None) -> int:
                 packet_limit=args.limit,
             )
             _summary(report)
+            _packet_summary(report)
             if args.json_path:
                 print(f"JSON    : {write_json(report, args.json_path)}")
             if args.csv_path:
                 print(f"CSV     : {write_csv(report, args.csv_path)}")
+            if args.packets_csv_path:
+                print(f"Packets : {write_packets_csv(report, args.packets_csv_path)}")
 
             pdf_target: Path | None = None
             if args.pdf_path:
@@ -156,9 +208,45 @@ def main(argv: list[str] | None = None) -> int:
 
             if args.html_path:
                 html_path = write_html(report, args.html_path)
+                attach_packet_explorer(html_path, report)
                 if written_pdf is not None:
                     attach_pdf_actions(html_path, written_pdf)
                 print(f"HTML    : {html_path}")
+            return 0
+
+        if args.command == "wireshark":
+            _print_banner()
+            capture_path = Path(args.capture).expanduser()
+            if capture_path.suffix.lower() not in {".pcap", ".pcapng", ".cap"}:
+                raise ValueError("Wireshark analysis expects a .pcap, .pcapng, or .cap file")
+            if not capture_path.exists():
+                raise ValueError(f"Capture file not found: {capture_path}")
+
+            session = _new_analysis_directory(args.reports_dir, "wireshark")
+            report = analyze_capture(capture_path, backend=args.backend, tls_keylog=args.tls_keylog)
+            _summary(report)
+            _packet_summary(report)
+
+            json_path = write_json(report, session / "analysis.json")
+            flows_path = write_csv(report, session / "flows.csv")
+            packets_path = write_packets_csv(report, session / "packets.csv")
+            pdf_path = write_pdf(report, session / "report.pdf")
+            html_path = write_html(report, session / "report.html")
+            attach_packet_explorer(html_path, report)
+            attach_pdf_actions(html_path, pdf_path)
+
+            print("\nWireshark capture analysis complete.")
+            print(f"JSON    : {json_path}")
+            print(f"Flows   : {flows_path}")
+            print(f"Packets : {packets_path}")
+            print(f"PDF     : {pdf_path}")
+            print(f"HTML    : {html_path}")
+
+            if not args.no_open:
+                if _open_report(html_path):
+                    print("Report opened automatically in your default browser.")
+                else:
+                    print(f"Open the report manually: {html_path}")
             return 0
 
         if args.command == "live":
@@ -191,6 +279,7 @@ def main(argv: list[str] | None = None) -> int:
                         report_data = json.loads(analysis_path.read_text(encoding="utf-8"))
                         pdf_path = write_pdf(report_data, session / "report.pdf")
                         attach_pdf_actions(html_path, pdf_path)
+                        from .live import _restore_session_ownership
                         _restore_session_ownership(session)
                         print(f"PDF     : {pdf_path}")
                         if not args.no_open:

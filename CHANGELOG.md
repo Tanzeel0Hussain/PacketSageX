@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0 — 2026-09-12
+
+- Added a dedicated `packetsagex wireshark <capture>` workflow for `.pcap`, `.pcapng`, and `.cap` files saved or exported from Wireshark.
+- Added packet-level intelligence: capture duration, average packet size, packet rate, protocol distribution, TCP flag counts, common source/destination ports, and visible DNS/HTTP/TLS/QUIC metadata counts.
+- Added short evidence-based descriptions for packet samples such as DNS queries/responses, HTTP requests, TLS SNI, QUIC metadata, and TCP/UDP endpoint activity.
+- Added `packets.csv` export for packet-level review.
+- Added a searchable **Packets** tab to generated HTML reports, with packet number, relative time, source, destination, protocol, size, and packet analysis.
+- Wireshark analysis now automatically creates JSON, flow CSV, packet CSV, HTML, and native PDF reports in a timestamped report folder and opens the HTML report by default.
+- Added `--packets-csv` to the normal `analyze` command and packet-level terminal summaries.
+- Added automated tests for packet intelligence, CSV export, and HTML Packet Explorer injection.
+
 ## 0.4.3 — 2026-09-12
 
 - Added native professional PDF report generation using ReportLab instead of relying on browser Print / Save PDF.

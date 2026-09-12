@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.2 — 2026-09-12
+
+- Fixed a TShark fields-output parsing bug that could produce `Backend: tshark` with `0` packets even when the staged capture was valid and readable.
+- PacketSageX now relies on TShark's native tab-separated fields output instead of passing a literal `\\t` separator value that some TShark builds interpret incorrectly.
+- Added a regression test that feeds a real tab-separated TShark-style row through the parser and verifies packet, endpoint, TLS SNI, and TLS-version extraction.
+
 ## 0.4.1 — 2026-09-12
 
 - Added a secure TShark path-permission compatibility retry for Linux environments where TShark can read `/tmp` but is denied access to an otherwise user-readable capture elsewhere.

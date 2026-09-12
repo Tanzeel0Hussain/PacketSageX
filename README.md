@@ -5,7 +5,7 @@
 
 PacketSageX is an open-source defensive network-forensics project for PCAP/PCAPNG analysis, continuous live monitoring, flow intelligence, explainable application classification, Nmap XML correlation, DNS analytics, endpoint inventory, TLS/QUIC metadata analysis, security heuristics, and standalone reports.
 
-> **Current release:** `v0.4.1`
+> **Current release:** `v0.4.2`
 
 ## Main features
 
@@ -14,6 +14,7 @@ PacketSageX is an open-source defensive network-forensics project for PCAP/PCAPN
 - Automatic active-interface selection when Linux users request `--interface any` with the Scapy live engine.
 - TShark-first offline analysis with automatic Scapy fallback where possible.
 - On Linux, if TShark is blocked from reading an otherwise user-readable capture path, PacketSageX securely stages a temporary `0600` copy and retries automatically; the temporary copy is removed after analysis.
+- TShark field parsing now uses native tab-separated output so valid captures no longer appear as a false `0 packets` result on builds that interpret a literal `\\t` separator differently.
 - Bidirectional flow/session summaries with source, destination, protocol, packets, bytes, duration, likely traffic, confidence, and evidence.
 - **Endpoint Inventory** with local/public/multicast scope, activity direction, peers, protocols, packets, and bytes.
 - **DNS Analytics** with query/response counts, unique domains, top queries, top clients, response codes, and NXDOMAIN count.
@@ -75,7 +76,7 @@ reports/
     └── report.html
 ```
 
-The HTML report opens automatically and now contains:
+The HTML report opens automatically and contains:
 
 ```text
 Overview
@@ -116,9 +117,11 @@ packetsagex analyze capture.pcapng --backend tshark
 packetsagex analyze capture.pcap --backend scapy
 ```
 
-## Linux TShark path-permission compatibility
+## Linux TShark compatibility
 
-Some Linux security profiles allow TShark to read a capture from `/tmp` but deny direct access to the same user-readable file under another path. PacketSageX v0.4.1 handles this automatically for offline TShark analysis: it first tries the original path, and only after a TShark permission-denied error does it make a private temporary copy, retry TShark, and delete that temporary copy when analysis finishes. PacketSageX does not disable AppArmor or other system security controls. See [`docs/TSHARK_COMPAT.md`](docs/TSHARK_COMPAT.md).
+Some Linux security profiles allow TShark to read a capture from `/tmp` but deny direct access to the same user-readable file under another path. PacketSageX handles this automatically for offline TShark analysis: it first tries the original path, and only after a TShark permission-denied error does it make a private temporary copy, retry TShark, and delete that temporary copy when analysis finishes. PacketSageX does not disable AppArmor or other system security controls.
+
+PacketSageX `v0.4.2` also fixes a separate TShark fields-output issue that could make a successfully opened capture produce `0` parsed packets. PacketSageX now relies on TShark's native tab-separated fields output, matching the parser's tab delimiter. See [`docs/TSHARK_COMPAT.md`](docs/TSHARK_COMPAT.md).
 
 ## DNS intelligence
 

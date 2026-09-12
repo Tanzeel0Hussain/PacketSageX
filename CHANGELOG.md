@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.1 — 2026-09-12
+
+- Fixed Linux live capture when users pass `--interface any` or rely on the default `any` value.
+- PacketSageX now maps `any`/`auto` to Scapy's active capture interface automatically instead of passing the unsupported pseudo-interface name to Scapy.
+- Added regression tests for automatic interface selection.
+- Improved live-capture error handling for invalid interface values.
+
 ## 0.3.0 — 2026-09-12
 
 - Added automatic timestamped report folders for every live capture session.

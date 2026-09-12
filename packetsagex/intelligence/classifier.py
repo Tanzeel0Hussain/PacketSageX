@@ -13,6 +13,11 @@ _SHARED_PORTS = {
     3478, 5349, 5222,
 }
 
+# High ephemeral/client ports are not reliable application identifiers. For example,
+# a normal HTTPS client can use source port 50000, which must not be interpreted as
+# Discord traffic just because a rule also mentions that port.
+_EPHEMERAL_PORT_START = 49152
+
 
 class TrafficClassifier:
     def __init__(self) -> None:
@@ -41,10 +46,16 @@ class TrafficClassifier:
                 evidence.append(f"domain hint: {domain_hits[0]}")
 
             port_hits = sorted(ports.intersection(rule.get("ports", [])))
-            strong_port_hits = [port for port in port_hits if port not in _SHARED_PORTS]
+            strong_port_hits = [
+                port
+                for port in port_hits
+                if port not in _SHARED_PORTS and port < _EPHEMERAL_PORT_START
+            ]
 
             # A common port such as 443, 3478, or 5222 is not enough to call
             # traffic WhatsApp/Zoom/Discord/etc. without domain/SNI evidence.
+            # High ephemeral ports are also excluded because they are commonly
+            # client-side source ports and can create false application matches.
             if strong_port_hits:
                 score += 42
                 evidence.append(f"application-associated port: {strong_port_hits[0]}")

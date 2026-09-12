@@ -3,33 +3,66 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <meta name="description" content="PacketSageX browser report viewer and Nmap XML inspector." />
-  <title>PacketSageX — Network Traffic Intelligence</title>
+  <meta name="description" content="PacketSageX Mini Analyzer — inspect Wireshark PCAP/PCAPNG captures locally in your browser." />
+  <title>PacketSageX Mini Analyzer</title>
   <link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="hero">
-    <img src="assets/logo.svg" alt="PacketSageX logo" class="logo" />
-    <div><p class="eyebrow">OPEN-SOURCE NETWORK FORENSICS</p><h1>PacketSageX</h1><p>Inspect exported PacketSageX reports and Nmap XML directly in your browser.</p></div>
+  <header class="topbar">
+    <a class="brand" href="./"><img src="assets/logo.svg" alt="PacketSageX" /><span><b>PACKETSAGEX</b><small>Mini Analyzer</small></span></a>
+    <a class="repo" href="https://github.com/Tanzeel0Hussain/PacketSageX" target="_blank" rel="noreferrer">GitHub Repo ↗</a>
   </header>
+
   <main>
-    <section class="notice">The full PCAP/PCAPNG engine runs in the CLI with TShark/Scapy. This GitHub Pages build is a safe static viewer and Nmap XML inspector; files stay in your browser.</section>
-    <section class="controls card">
-      <label class="upload">Load PacketSageX JSON<input id="reportFile" type="file" accept=".json,application/json" /></label>
-      <label class="upload">Load Nmap XML<input id="nmapFile" type="file" accept=".xml,text/xml" /></label>
-      <button id="demoBtn">Load Demo Report</button>
-      <button id="clearBtn" class="secondary">Clear</button>
+    <section class="hero">
+      <div>
+        <p class="eyebrow">BROWSER-BASED NETWORK FORENSICS DEMO</p>
+        <h1>Analyze a Wireshark capture without uploading it.</h1>
+        <p class="lead">Drop a <b>.pcap</b>, <b>.pcapng</b>, <b>.cap</b>, or PacketSageX <b>.json</b> file. The lightweight analyzer runs fully in your browser using JavaScript.</p>
+      </div>
+      <div class="privacy"><b>LOCAL ONLY</b><span>Your capture stays on your device. GitHub Pages does not receive the file.</span></div>
     </section>
-    <section id="stats" class="stats"></section>
-    <section class="grid">
-      <article class="card"><h2>Traffic Categories</h2><div id="categories" class="bars empty">Load a report to begin.</div></article>
-      <article class="card"><h2>Security Findings</h2><div id="findings" class="empty">No report loaded.</div></article>
+
+    <section class="upload-card" id="dropZone">
+      <input id="captureFile" type="file" accept=".pcap,.pcapng,.cap,.json,application/json" hidden />
+      <div class="upload-icon">⌁</div>
+      <h2>Drop Wireshark capture here</h2>
+      <p>Classic PCAP and common Ethernet PCAPNG captures are supported in the mini analyzer.</p>
+      <div class="buttons">
+        <button id="pickBtn" class="primary">Choose File</button>
+        <button id="demoBtn">Load Demo</button>
+        <button id="clearBtn">Clear</button>
+      </div>
+      <div id="status" class="status">Ready.</div>
     </section>
-    <section class="card"><div class="section-title"><h2>Top Flows</h2><input id="filter" placeholder="Filter flows…" /></div><div class="table-wrap"><table><thead><tr><th>Source</th><th>Destination</th><th>Protocol</th><th>Packets</th><th>Bytes</th><th>Likely Traffic</th><th>Confidence</th></tr></thead><tbody id="flowRows"></tbody></table></div></section>
-    <section class="card"><h2>Nmap Import</h2><div id="nmapOutput" class="empty">Load an Nmap XML file exported with <code>nmap -oX scan.xml …</code>.</div></section>
+
+    <section id="results" class="hidden">
+      <div class="section-head"><div><p class="eyebrow">CAPTURE SUMMARY</p><h2 id="fileTitle">Analysis</h2></div><button id="exportBtn">Export Summary JSON</button></div>
+      <div id="stats" class="stats"></div>
+
+      <div class="grid">
+        <article class="panel"><h3>Protocols</h3><div id="protocols"></div></article>
+        <article class="panel"><h3>Likely Traffic</h3><div id="categories"></div></article>
+      </div>
+
+      <article class="panel">
+        <div class="table-title"><div><h3>Top Flows</h3><p>Bidirectional conversations grouped by endpoints and transport.</p></div><input id="flowFilter" placeholder="Filter flows…" /></div>
+        <div class="table-wrap"><table><thead><tr><th>Source</th><th>Destination</th><th>Protocol</th><th>Packets</th><th>Bytes</th><th>Likely Traffic</th></tr></thead><tbody id="flowRows"></tbody></table></div>
+      </article>
+
+      <article class="panel">
+        <div class="table-title"><div><h3>Packets</h3><p id="packetNote">Packet-level browser preview.</p></div><input id="packetFilter" placeholder="Search IP, protocol, port, DNS…" /></div>
+        <div class="table-wrap"><table><thead><tr><th>No.</th><th>Time</th><th>Source</th><th>Destination</th><th>Protocol</th><th>Bytes</th><th>Analysis</th></tr></thead><tbody id="packetRows"></tbody></table></div>
+      </article>
+    </section>
+
+    <section class="limit-note">
+      <b>Mini analyzer limitation:</b> this GitHub Pages version is intentionally lightweight. It does not run TShark, does not decrypt traffic, and does not provide the full Python CLI intelligence/PDF pipeline. For complete analysis use <code>packetsagex wireshark &lt;capture&gt;</code> on your computer.
+    </section>
   </main>
-  <footer>PacketSageX · Evidence-based classification · Authorized traffic analysis only</footer>
+
+  <footer>PacketSageX · Defensive network traffic analysis · Analyze only captures you own or are authorized to inspect</footer>
   <script src="app.js"></script>
 </body>
 </html>

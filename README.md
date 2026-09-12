@@ -5,13 +5,19 @@
 
 ## What is PacketSageX?
 
-PacketSageX is an open-source defensive network traffic analysis and forensics tool.
+PacketSageX is a defensive network traffic analysis and forensics tool. It can monitor live traffic or analyze Wireshark `.pcap`, `.pcapng`, and `.cap` files to show packets, flows, endpoints, protocols, DNS activity, likely traffic types, and security findings.
 
-It can monitor live traffic and it can also analyze packet-capture files saved or exported from **Wireshark** (`.pcap`, `.pcapng`, `.cap`). PacketSageX examines packets, flows, source and destination addresses, protocols, ports, DNS activity, visible HTTP/TLS/QUIC metadata, endpoints, likely traffic categories, and defensive security findings.
+Use it only with captures and networks that you own or have permission to inspect. PacketSageX does not break TLS, VPN, WhatsApp, or other encryption.
 
-For Wireshark files, PacketSageX also creates a searchable **Packet Explorer** in the HTML report and a `packets.csv` file with packet-level details and short packet descriptions.
+## Live Mini Analyzer
 
-PacketSageX is for captures and networks that you own or have permission to inspect. It does not break TLS, VPN, WhatsApp, or other encryption.
+A small browser version is available on GitHub Pages:
+
+**https://tanzeel0hussain.github.io/PacketSageX/**
+
+The live mini analyzer is built with HTML, CSS, and JavaScript because those technologies fit GitHub Pages better than Python. It can inspect common Wireshark PCAP/PCAPNG captures locally in the browser. The capture is not uploaded to a server.
+
+The full CLI is still the main version because TShark, Scapy, professional PDF reports, and deeper analysis need the desktop environment.
 
 ## Install
 
@@ -26,12 +32,11 @@ cd PacketSageX
 
 python3 -m venv .venv
 source .venv/bin/activate
-
 python -m pip install --upgrade pip
 python -m pip install -e ".[dev]"
 ```
 
-Check the installation:
+Check installation:
 
 ```bash
 packetsagex --version
@@ -41,36 +46,31 @@ packetsagex doctor
 
 ## Analyze a Wireshark File
 
-Save or export the capture from Wireshark as `.pcap`, `.pcapng`, or `.cap`, then run:
+Example:
 
 ```bash
 cd ~/PacketSageX
 source .venv/bin/activate
-
-packetsagex wireshark "/path/to/capture.pcapng"
+packetsagex wireshark ~/Downloads/capture.pcap
 ```
 
-Example for a file in Downloads:
+You can also use:
 
 ```bash
 packetsagex wireshark ~/Downloads/capture.pcapng
 ```
 
-PacketSageX analyzes the capture and creates a new folder like:
+PacketSageX creates a report folder containing:
 
 ```text
-reports/
-└── wireshark_2026-09-12_12-00-00/
-    ├── analysis.json
-    ├── flows.csv
-    ├── packets.csv
-    ├── report.html
-    └── report.pdf
+analysis.json
+flows.csv
+packets.csv
+report.html
+report.pdf
 ```
 
-The HTML report contains Overview, Security, Endpoints, DNS, TLS / QUIC, Flows, and **Packets** tabs. The Packets tab can be searched by packet number, source, destination, protocol, size, or packet description.
-
-## Run Live Monitoring
+## Live Network Monitoring
 
 ```bash
 cd ~/PacketSageX
@@ -78,13 +78,7 @@ source .venv/bin/activate
 sudo .venv/bin/packetsagex live --interface any
 ```
 
-Press:
-
-```text
-Ctrl + C
-```
-
-to stop the capture and generate the report files.
+Press `Ctrl + C` to stop and generate the reports.
 
 ## Open the Latest HTML Report
 

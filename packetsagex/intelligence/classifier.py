@@ -7,6 +7,13 @@ from typing import Iterable
 from ..models import FlowSummary, PacketRecord
 
 
+# Ports that are too widely shared to identify a specific application by themselves.
+_SHARED_PORTS = {
+    22, 53, 80, 123, 443, 853, 8080, 8443,
+    3478, 5349, 5222,
+}
+
+
 class TrafficClassifier:
     def __init__(self) -> None:
         path = files("packetsagex.intelligence").joinpath("signatures.json")
@@ -27,21 +34,35 @@ class TrafficClassifier:
         for rule in self.rules:
             score = 0
             evidence: list[str] = []
+
             domain_hits = [suffix for suffix in rule.get("domains", []) if suffix.lower() in domains]
             if domain_hits:
-                score += min(70, 45 + 5 * len(domain_hits))
+                score += min(82, 72 + 3 * len(domain_hits))
                 evidence.append(f"domain hint: {domain_hits[0]}")
+
             port_hits = sorted(ports.intersection(rule.get("ports", [])))
-            if port_hits:
-                score += 22
+            strong_port_hits = [port for port in port_hits if port not in _SHARED_PORTS]
+
+            # A common port such as 443, 3478, or 5222 is not enough to call
+            # traffic WhatsApp/Zoom/Discord/etc. without domain/SNI evidence.
+            if strong_port_hits:
+                score += 42
+                evidence.append(f"application-associated port: {strong_port_hits[0]}")
+            elif port_hits and domain_hits:
+                score += 10
                 evidence.append(f"service port: {port_hits[0]}")
+
             protocols = {p.upper() for p in rule.get("protocols", [])}
-            if protocol in protocols:
-                score += 18
+            if protocol in protocols and (domain_hits or strong_port_hits):
+                score += 10
                 evidence.append(f"protocol: {protocol}")
-            if rule.get("min_packets") and flow.packets >= rule["min_packets"]:
-                score += 5
+
+            if rule.get("min_packets") and flow.packets >= rule["min_packets"] and (domain_hits or strong_port_hits):
+                score += 4
                 evidence.append("flow volume pattern")
+
+            if not domain_hits and not strong_port_hits:
+                continue
 
             if score > best[1]:
                 best = (rule["name"], min(98, score), evidence)

@@ -10,6 +10,7 @@
 - Added Top/Bottom sorting with selectable sort fields in the standalone HTML report.
 - Added `--reports-dir` and `--no-open` live-mode options.
 - Added tests for live report generation, unique session folders, and searchable report controls.
+- Reduced false application labels by preventing shared ports such as 443 from identifying WhatsApp/Zoom/Discord without stronger evidence.
 
 ## 0.2.0 — 2026-09-12
 

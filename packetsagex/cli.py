@@ -54,7 +54,20 @@ def build_parser() -> argparse.ArgumentParser:
     live.add_argument("--refresh", type=float, default=1.0, help="Dashboard refresh interval in seconds")
     live.add_argument("--view", choices=["dashboard", "stream"], default="dashboard")
     live.add_argument("--filter", dest="bpf_filter", help="Optional BPF capture filter, e.g. 'tcp or udp'")
-    live.add_argument("--save", help="Optionally save captured traffic to a .pcap file")
+    live.add_argument(
+        "--save",
+        help="Optional custom .pcap path. By default capture.pcap is stored in the timestamped report folder.",
+    )
+    live.add_argument(
+        "--reports-dir",
+        default="reports",
+        help="Root folder for timestamped live-session reports (default: reports)",
+    )
+    live.add_argument(
+        "--no-open",
+        action="store_true",
+        help="Do not automatically open the generated HTML report after Ctrl+C",
+    )
 
     nmap = sub.add_parser("nmap", help="Import Nmap XML output")
     nmap.add_argument("xml")
@@ -88,13 +101,19 @@ def main(argv: list[str] | None = None) -> int:
             scapy_state = "not available"
         print(f"Scapy   : {scapy_state}")
         print("Live    : Scapy capture engine; runs until Ctrl+C")
+        print("Reports : timestamped JSON/CSV/HTML + capture, HTML auto-opens after live stop")
         print("TLS keys: supported through TShark when you provide your own authorized key log")
         return 0
 
     try:
         if args.command == "analyze":
             _print_banner()
-            report = analyze_capture(args.capture, backend=args.backend, tls_keylog=args.tls_keylog, packet_limit=args.limit)
+            report = analyze_capture(
+                args.capture,
+                backend=args.backend,
+                tls_keylog=args.tls_keylog,
+                packet_limit=args.limit,
+            )
             _summary(report)
             if args.json_path:
                 print(f"JSON    : {write_json(report, args.json_path)}")
@@ -113,6 +132,8 @@ def main(argv: list[str] | None = None) -> int:
                 view=args.view,
                 bpf_filter=args.bpf_filter,
                 save=args.save,
+                reports_dir=args.reports_dir,
+                open_report=not args.no_open,
             )
 
         if args.command == "nmap":

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0 — 2026-09-12
+
+- Added automatic timestamped report folders for every live capture session.
+- Live sessions now save `capture.pcap`, `analysis.json`, `flows.csv`, and `report.html`.
+- Added automatic HTML report opening when the user stops capture with Ctrl+C.
+- Added sudo-aware ownership restoration for generated report files on Linux.
+- Added full-flow search across Source, Destination, Protocol, Packets, Bytes, Likely Traffic, and Confidence.
+- Added Top/Bottom sorting with selectable sort fields in the standalone HTML report.
+- Added `--reports-dir` and `--no-open` live-mode options.
+- Added tests for live report generation, unique session folders, and searchable report controls.
+
 ## 0.2.0 — 2026-09-12
 
 - Added continuous `packetsagex live` capture mode that runs until Ctrl+C.

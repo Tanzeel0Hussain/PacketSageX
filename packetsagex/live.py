@@ -2,14 +2,19 @@ from __future__ import annotations
 
 from collections import Counter, deque
 from dataclasses import dataclass, field
+from datetime import datetime
+import os
 from pathlib import Path
 import shutil
+import subprocess
 import time
 from typing import Any
 
 from .capture.scapy_backend import packet_to_record
 from .intelligence import TrafficClassifier
 from .models import FlowSummary, PacketRecord
+from .reporting import write_csv, write_html, write_json
+from .security import security_findings
 
 
 @dataclass(slots=True)
@@ -23,6 +28,7 @@ class LiveMonitor:
 
     def __init__(self, recent_limit: int = 12) -> None:
         self.started = time.monotonic()
+        self.started_at = datetime.now().astimezone()
         self.packet_count = 0
         self.byte_count = 0
         self.protocols: Counter[str] = Counter()
@@ -111,6 +117,36 @@ class LiveMonitor:
             "pps": self.current_pps,
             "mbps": self.current_mbps,
             "elapsed": max(0.0, time.monotonic() - self.started),
+        }
+
+    def to_report(self, *, interface: str, capture_path: Path) -> dict[str, Any]:
+        """Build the normal PacketSageX report schema from the current live session."""
+        flows = [item.summary for item in self.flows.values()]
+        flows.sort(key=lambda item: item.bytes, reverse=True)
+        categories = Counter(flow.classification for flow in flows)
+        sampled_packets = [
+            packet
+            for live_flow in self.flows.values()
+            for packet in live_flow.samples
+        ]
+        return {
+            "schema": "packetsagex.report.v1",
+            "source": str(capture_path),
+            "backend": "live-scapy",
+            "interface": interface,
+            "started_at": self.started_at.isoformat(),
+            "finished_at": datetime.now().astimezone().isoformat(),
+            "packet_count": self.packet_count,
+            "byte_count": self.byte_count,
+            "flow_count": len(flows),
+            "protocols": dict(self.protocols.most_common()),
+            "top_endpoints": [
+                {"endpoint": name, "packets": count}
+                for name, count in self.endpoints.most_common(20)
+            ],
+            "traffic_categories": dict(categories.most_common()),
+            "flows": [flow.to_dict() for flow in flows],
+            "security_findings": security_findings(sampled_packets, flows),
         }
 
     @staticmethod
@@ -203,6 +239,72 @@ class LiveMonitor:
         )
 
 
+def _new_session_directory(root: str | Path) -> Path:
+    root_path = Path(root).expanduser().resolve()
+    root_path.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().astimezone().strftime("%Y-%m-%d_%H-%M-%S")
+    candidate = root_path / stamp
+    suffix = 2
+    while candidate.exists():
+        candidate = root_path / f"{stamp}_{suffix:02d}"
+        suffix += 1
+    candidate.mkdir(parents=True)
+    return candidate
+
+
+def _restore_session_ownership(path: Path) -> None:
+    """Give sudo-created report files back to the invoking desktop user on Unix."""
+    uid_text = os.environ.get("SUDO_UID")
+    gid_text = os.environ.get("SUDO_GID")
+    if not uid_text or not gid_text or not hasattr(os, "chown"):
+        return
+    try:
+        uid, gid = int(uid_text), int(gid_text)
+        if path.is_dir():
+            for child in path.rglob("*"):
+                os.chown(child, uid, gid)
+        os.chown(path, uid, gid)
+    except (OSError, ValueError):
+        pass
+
+
+def _open_report(path: Path) -> bool:
+    """Best-effort open of the HTML report, including sessions started through sudo."""
+    path = path.resolve()
+    sudo_user = os.environ.get("SUDO_USER")
+    display = os.environ.get("DISPLAY")
+    wayland_display = os.environ.get("WAYLAND_DISPLAY")
+    dbus = os.environ.get("DBUS_SESSION_BUS_ADDRESS")
+    xauthority = os.environ.get("XAUTHORITY")
+
+    try:
+        if os.name != "nt" and sudo_user and hasattr(os, "geteuid") and os.geteuid() == 0:
+            env_parts = []
+            if display:
+                env_parts.append(f"DISPLAY={display}")
+            if wayland_display:
+                env_parts.append(f"WAYLAND_DISPLAY={wayland_display}")
+            if dbus:
+                env_parts.append(f"DBUS_SESSION_BUS_ADDRESS={dbus}")
+            if xauthority:
+                env_parts.append(f"XAUTHORITY={xauthority}")
+            command = ["sudo", "-u", sudo_user, "env", *env_parts, "xdg-open", str(path)]
+            subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+
+        if os.name == "nt":
+            os.startfile(str(path))  # type: ignore[attr-defined]
+            return True
+
+        opener = shutil.which("xdg-open") or shutil.which("open")
+        if opener:
+            subprocess.Popen([opener, str(path)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+    except OSError:
+        return False
+    return False
+
+
 def run_live_capture(
     *,
     interface: str = "any",
@@ -210,8 +312,10 @@ def run_live_capture(
     view: str = "dashboard",
     bpf_filter: str | None = None,
     save: str | Path | None = None,
+    reports_dir: str | Path = "reports",
+    open_report: bool = True,
 ) -> int:
-    """Capture until Ctrl+C and display live PacketSageX intelligence."""
+    """Capture until Ctrl+C, save a timestamped session report, and open it."""
     try:
         from scapy.all import PcapWriter, sniff
     except Exception as exc:  # pragma: no cover - environment-specific
@@ -220,17 +324,17 @@ def run_live_capture(
     if refresh <= 0:
         raise RuntimeError("--refresh must be greater than 0")
 
+    session_dir = _new_session_directory(reports_dir)
+    output_path = Path(save).expanduser().resolve() if save else session_dir / "capture.pcap"
+    if output_path.suffix.lower() != ".pcap":
+        raise RuntimeError("Live capture currently writes classic PCAP; use a .pcap filename")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
     monitor = LiveMonitor()
     last_render = 0.0
-    writer = None
-    output_path: Path | None = None
-    if save:
-        output_path = Path(save).expanduser().resolve()
-        if output_path.suffix.lower() != ".pcap":
-            raise RuntimeError("Live --save currently writes classic PCAP; use a .pcap filename")
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        writer = PcapWriter(str(output_path), append=False, sync=True)
+    writer = PcapWriter(str(output_path), append=False, sync=True)
 
+    print(f"Session reports: {session_dir}")
     if view == "dashboard":
         print("\033[2J\033[H" + monitor.render_dashboard(interface, bpf_filter), end="", flush=True)
     else:
@@ -241,8 +345,7 @@ def run_live_capture(
         number = monitor.packet_count + 1
         record = packet_to_record(raw_packet, number)
         label, confidence = monitor.add_record(record)
-        if writer is not None:
-            writer.write(raw_packet)
+        writer.write(raw_packet)
 
         now = time.monotonic()
         if view == "stream":
@@ -273,12 +376,29 @@ def run_live_capture(
             ) from exc
         raise RuntimeError(f"Live capture failed on interface {interface}: {exc}") from exc
     finally:
-        if writer is not None:
-            writer.close()
+        writer.close()
 
     if view == "dashboard":
         print("\033[2J\033[H", end="")
     print(monitor.render_final())
-    if output_path is not None:
-        print(f"Saved capture: {output_path}")
+
+    report = monitor.to_report(interface=interface, capture_path=output_path)
+    json_path = write_json(report, session_dir / "analysis.json")
+    csv_path = write_csv(report, session_dir / "flows.csv")
+    html_path = write_html(report, session_dir / "report.html")
+    _restore_session_ownership(session_dir)
+    if not output_path.is_relative_to(session_dir):
+        _restore_session_ownership(output_path)
+
+    print(f"Capture : {output_path}")
+    print(f"JSON    : {json_path}")
+    print(f"CSV     : {csv_path}")
+    print(f"HTML    : {html_path}")
+
+    if open_report:
+        if _open_report(html_path):
+            print("Report opened automatically in your default browser.")
+        else:
+            print(f"Could not auto-open the browser. Open this file manually: {html_path}")
+
     return 0

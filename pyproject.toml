@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "packetsagex"
-version = "0.3.0"
+version = "0.3.1"
 description = "PCAP/PCAPNG network traffic intelligence, Nmap correlation, and network forensics CLI."
 readme = "README.md"
 requires-python = ">=3.11"

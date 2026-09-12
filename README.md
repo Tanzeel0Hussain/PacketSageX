@@ -3,9 +3,9 @@
 <p align="center"><img src="web/assets/logo.svg" width="128" alt="PacketSageX logo" /></p>
 <p align="center"><strong>Network Traffic Intelligence & Forensics Platform</strong></p>
 
-PacketSageX is an open-source defensive network-forensics project for PCAP/PCAPNG analysis, continuous live monitoring, flow intelligence, explainable application classification, Nmap XML correlation, DNS analytics, endpoint inventory, TLS/QUIC metadata analysis, security heuristics, and standalone reports.
+PacketSageX is an open-source defensive network-forensics project for PCAP/PCAPNG analysis, continuous live monitoring, flow intelligence, explainable application classification, Nmap XML correlation, DNS analytics, endpoint inventory, TLS/QUIC metadata analysis, security heuristics, and professional standalone reports.
 
-> **Current release:** `v0.4.2`
+> **Current release:** `v0.4.3`
 
 ## Main features
 
@@ -13,8 +13,8 @@ PacketSageX is an open-source defensive network-forensics project for PCAP/PCAPN
 - Continuous `packetsagex live` monitoring until the user presses **Ctrl+C**.
 - Automatic active-interface selection when Linux users request `--interface any` with the Scapy live engine.
 - TShark-first offline analysis with automatic Scapy fallback where possible.
-- On Linux, if TShark is blocked from reading an otherwise user-readable capture path, PacketSageX securely stages a temporary `0600` copy and retries automatically; the temporary copy is removed after analysis.
-- TShark field parsing uses native tab-separated output so valid captures do not appear as a false `0 packets` result on affected builds.
+- Linux TShark path-permission compatibility through secure temporary staging without disabling host security controls.
+- Native TShark fields parsing that avoids false `0 packets` results on affected builds.
 - Bidirectional flow/session summaries with source, destination, protocol, packets, bytes, duration, likely traffic, confidence, and evidence.
 - **Endpoint Inventory** with local/public/multicast scope, activity direction, peers, protocols, packets, and bytes.
 - **DNS Analytics** with query/response counts, unique domains, top queries, top clients, response codes, and NXDOMAIN count.
@@ -22,12 +22,13 @@ PacketSageX is an open-source defensive network-forensics project for PCAP/PCAPN
 - Evidence-based application classification for services such as YouTube, Google, WhatsApp, Discord, Zoom, Teams, Spotify, Steam, GitHub, and generic web traffic.
 - Explainable defensive findings for port-scan patterns, SYN/DNS bursts, and common cleartext services.
 - Nmap XML import and capture-to-scan correlation.
-- JSON, CSV, and searchable standalone HTML reports.
+- JSON, CSV, searchable tabbed HTML, and **native professional PDF** reports.
 - Timestamped report folder for every live session.
 - HTML report automatically opens after Ctrl+C.
-- **Cyber-console terminal branding** with a clearer large `PACKETSAGEX` banner, status line, and ANSI color in interactive terminals.
-- **Tabbed HTML report** with Overview, Security, Endpoints, DNS, TLS / QUIC, and Flows sections so normal viewing does not require one long scroll.
-- **Print / Save PDF** action that expands every tab into a complete print-friendly report.
+- **Cyber-console terminal branding** with a large `PACKETSAGEX` banner, status line, and ANSI color in interactive terminals.
+- **Tabbed HTML report** with Overview, Security, Endpoints, DNS, TLS / QUIC, and Flows sections.
+- HTML actions for **Open Professional PDF** and **Save PDF** instead of browser Print-to-PDF.
+- Native PDF cover page, executive summary, findings, inventory, DNS, TLS/QUIC, complete flow tables, repeated table headers, page numbers, and PacketSageX headers/footers.
 - Flow search across Source, Destination, Protocol, Packets, Bytes, Likely Traffic, and Confidence, plus Top/Bottom sorting.
 - Authorized TLS key-log support through TShark for sessions that the user is legitimately allowed to decrypt.
 - CI tests on Python 3.11, 3.12, and 3.13.
@@ -63,13 +64,15 @@ Verify runtime:
 packetsagex doctor
 ```
 
+`doctor` now also shows whether the native professional PDF engine is available.
+
 ## Continuous live monitoring
 
 ```bash
 sudo .venv/bin/packetsagex live --interface any
 ```
 
-The scan runs continuously. Press **Ctrl+C** whenever you want to stop. PacketSageX then creates a new timestamped folder:
+The scan runs continuously. Press **Ctrl+C** whenever you want to stop. PacketSageX creates a new timestamped folder:
 
 ```text
 reports/
@@ -77,8 +80,11 @@ reports/
     ├── capture.pcap
     ├── analysis.json
     ├── flows.csv
-    └── report.html
+    ├── report.html
+    └── report.pdf
 ```
+
+The native PDF is generated before the HTML report is opened, so the HTML can immediately provide **Open Professional PDF** and **Save PDF** actions.
 
 Stream mode:
 
@@ -86,9 +92,9 @@ Stream mode:
 sudo .venv/bin/packetsagex live --interface any --view stream
 ```
 
-## Tabbed HTML report and printing
+## Tabbed HTML report
 
-The standalone report now uses tabs instead of displaying every section in one very long page:
+The standalone HTML report uses tabs instead of placing every section on one long page:
 
 ```text
 Overview
@@ -99,9 +105,28 @@ TLS / QUIC
 Flows
 ```
 
-The **Flows** tab keeps the existing search and Top/Bottom sorting controls. The **Overview** tab includes capture totals and traffic-category summaries.
+The **Flows** tab keeps search and Top/Bottom sorting controls. The HTML dashboard is intended for interactive investigation, while the native PDF is intended for sharing, archiving, printing, assignments, and professional evidence.
 
-Use the **Print / Save PDF** button in the report header to create a formal report. Print mode automatically expands every tab, switches to a clean light layout, repeats table headers where supported, and includes the complete analysis even though only one tab is visible on screen.
+## Professional PDF reports
+
+PacketSageX `v0.4.3` no longer relies on the browser's Print / Save PDF output for its formal report. The PDF is generated directly from the analysis data using a dedicated report engine, so it looks like a normal forensic document rather than a printed web page.
+
+The PDF includes:
+
+- Branded PacketSageX cover page.
+- Capture source, backend, interface, and generation time.
+- Executive summary with packet, flow, byte, DNS, and finding totals.
+- Traffic classification summary.
+- Security findings and supporting evidence.
+- Endpoint inventory.
+- DNS analytics and top queries.
+- TLS / QUIC intelligence and visible SNI data.
+- Complete flow details.
+- Repeated table headings for long tables.
+- Page numbers and branded headers/footers.
+- Clean A4 landscape pagination with no browser URL/date print chrome.
+
+See [`docs/PDF_REPORTS.md`](docs/PDF_REPORTS.md) for details.
 
 ## Offline capture analysis
 
@@ -109,7 +134,7 @@ Use the **Print / Save PDF** button in the report header to create a formal repo
 packetsagex analyze capture.pcapng
 ```
 
-Export reports:
+Export JSON, CSV, HTML and an automatically generated sibling PDF:
 
 ```bash
 packetsagex analyze capture.pcapng \
@@ -118,7 +143,31 @@ packetsagex analyze capture.pcapng \
   --html reports/report.html
 ```
 
-Force a backend if needed:
+The command above creates both:
+
+```text
+reports/report.html
+reports/report.pdf
+```
+
+Generate only a native PDF at a chosen path:
+
+```bash
+packetsagex analyze capture.pcapng \
+  --backend tshark \
+  --pdf reports/forensics-report.pdf
+```
+
+Choose separate HTML and PDF filenames:
+
+```bash
+packetsagex analyze capture.pcapng \
+  --backend tshark \
+  --html reports/session.html \
+  --pdf reports/session-forensics.pdf
+```
+
+Force a capture backend if needed:
 
 ```bash
 packetsagex analyze capture.pcapng --backend tshark
@@ -129,7 +178,7 @@ packetsagex analyze capture.pcap --backend scapy
 
 Some Linux security profiles allow TShark to read a capture from `/tmp` but deny direct access to the same user-readable file under another path. PacketSageX handles this automatically for offline TShark analysis: it first tries the original path, and only after a TShark permission-denied error does it make a private temporary copy, retry TShark, and delete that temporary copy when analysis finishes. PacketSageX does not disable AppArmor or other system security controls.
 
-PacketSageX `v0.4.2` also fixes a separate TShark fields-output issue that could make a successfully opened capture produce `0` parsed packets. PacketSageX now relies on TShark's native tab-separated fields output, matching the parser's tab delimiter. See [`docs/TSHARK_COMPAT.md`](docs/TSHARK_COMPAT.md).
+PacketSageX also uses TShark's native tab-separated fields output so a successfully opened capture is not incorrectly reported as `0` parsed packets. See [`docs/TSHARK_COMPAT.md`](docs/TSHARK_COMPAT.md).
 
 ## DNS intelligence
 
@@ -176,6 +225,7 @@ PacketSageX/
 │   ├── analysis.py
 │   ├── banner.py
 │   ├── live.py
+│   ├── pdf_report.py
 │   ├── reporting.py
 │   ├── security.py
 │   ├── nmap_import.py

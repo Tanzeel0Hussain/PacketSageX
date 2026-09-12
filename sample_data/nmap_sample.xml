@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+<nmaprun scanner="nmap" args="nmap -sV -oX nmap_sample.xml 192.168.1.10">
+  <host>
+    <status state="up"/>
+    <address addr="192.168.1.10" addrtype="ipv4"/>
+    <hostnames><hostname name="demo-host.local" type="PTR"/></hostnames>
+    <ports>
+      <port protocol="tcp" portid="22"><state state="open"/><service name="ssh" product="OpenSSH" version="9.x"/></port>
+      <port protocol="tcp" portid="443"><state state="open"/><service name="https" product="nginx"/></port>
+    </ports>
+  </host>
+</nmaprun>

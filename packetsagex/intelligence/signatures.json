@@ -1,0 +1,14 @@
+[
+  {"name":"YouTube / Google Video","domains":["youtube.com","googlevideo.com","ytimg.com"],"ports":[443],"protocols":["TLS","QUIC","HTTP2"],"min_packets":8},
+  {"name":"Netflix Streaming","domains":["netflix.com","nflxvideo.net","nflximg.net"],"ports":[443],"protocols":["TLS","QUIC"],"min_packets":10},
+  {"name":"WhatsApp Messaging / Calling","domains":["whatsapp.net","whatsapp.com","wa.me"],"ports":[443,3478,4244,5222],"protocols":["TLS","TCP","UDP","QUIC"],"min_packets":6},
+  {"name":"Discord Messaging / Voice","domains":["discord.com","discord.gg","discordapp.com","discord.media"],"ports":[443,3478,50000],"protocols":["TLS","UDP","QUIC"],"min_packets":6},
+  {"name":"Microsoft Teams","domains":["teams.microsoft.com","skype.com","office.com"],"ports":[443,3478,3480,3481],"protocols":["TLS","UDP"],"min_packets":6},
+  {"name":"Zoom Meeting / VoIP","domains":["zoom.us","zoom.com"],"ports":[443,3478,8801,8802],"protocols":["TLS","UDP"],"min_packets":6},
+  {"name":"Spotify Audio Streaming","domains":["spotify.com","scdn.co","spotifycdn.com"],"ports":[443,4070],"protocols":["TLS","TCP"],"min_packets":8},
+  {"name":"Steam Gaming / Downloads","domains":["steampowered.com","steamcontent.com","steamstatic.com"],"ports":[443,27015,27036],"protocols":["TLS","TCP","UDP"],"min_packets":5},
+  {"name":"Epic Games","domains":["epicgames.com","unrealengine.com"],"ports":[443,5222],"protocols":["TLS","TCP","UDP"],"min_packets":5},
+  {"name":"Cloudflare / CDN","domains":["cloudflare.com","cloudflare.net"],"ports":[443],"protocols":["TLS","QUIC"],"min_packets":3},
+  {"name":"Google Services","domains":["google.com","gstatic.com","googleapis.com"],"ports":[443],"protocols":["TLS","QUIC","HTTP2"],"min_packets":3},
+  {"name":"GitHub","domains":["github.com","githubusercontent.com","githubassets.com"],"ports":[22,443],"protocols":["TLS","SSH"],"min_packets":3}
+]

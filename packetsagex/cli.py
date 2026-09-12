@@ -11,6 +11,7 @@ from .analysis import analyze_capture
 from .banner import BANNER, TAGLINE
 from .capture import CaptureError
 from .correlate import correlate_reports
+from .live import run_live_capture
 from .nmap_import import NmapImportError, parse_nmap_xml
 from .reporting import write_csv, write_html, write_json
 
@@ -48,6 +49,13 @@ def build_parser() -> argparse.ArgumentParser:
     analyze.add_argument("--csv", dest="csv_path")
     analyze.add_argument("--html", dest="html_path")
 
+    live = sub.add_parser("live", help="Monitor live traffic until Ctrl+C")
+    live.add_argument("-i", "--interface", default="any", help="Capture interface (default: any)")
+    live.add_argument("--refresh", type=float, default=1.0, help="Dashboard refresh interval in seconds")
+    live.add_argument("--view", choices=["dashboard", "stream"], default="dashboard")
+    live.add_argument("--filter", dest="bpf_filter", help="Optional BPF capture filter, e.g. 'tcp or udp'")
+    live.add_argument("--save", help="Optionally save captured traffic to a .pcap file")
+
     nmap = sub.add_parser("nmap", help="Import Nmap XML output")
     nmap.add_argument("xml")
     nmap.add_argument("--json", dest="json_path")
@@ -79,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
         except Exception:
             scapy_state = "not available"
         print(f"Scapy   : {scapy_state}")
+        print("Live    : Scapy capture engine; runs until Ctrl+C")
         print("TLS keys: supported through TShark when you provide your own authorized key log")
         return 0
 
@@ -94,6 +103,17 @@ def main(argv: list[str] | None = None) -> int:
             if args.html_path:
                 print(f"HTML    : {write_html(report, args.html_path)}")
             return 0
+
+        if args.command == "live":
+            _print_banner()
+            print("Starting continuous live capture. Press Ctrl+C whenever you want to stop.\n")
+            return run_live_capture(
+                interface=args.interface,
+                refresh=args.refresh,
+                view=args.view,
+                bpf_filter=args.bpf_filter,
+                save=args.save,
+            )
 
         if args.command == "nmap":
             _print_banner()

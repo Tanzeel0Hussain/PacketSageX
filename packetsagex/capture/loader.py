@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
+import shutil
+import tempfile
 from typing import Iterable
 
 from .scapy_backend import ScapyBackend
@@ -26,6 +29,42 @@ def _validated_stream(
         yield from stream
     except Exception as exc:
         raise CaptureError(f"{name} backend failed: {exc}") from exc
+
+
+def _looks_like_permission_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    return (
+        "permission denied" in text
+        or "don't have permission" in text
+        or "do not have permission" in text
+        or "not permitted" in text
+    )
+
+
+def _staged_tshark_stream(
+    backend: TsharkBackend,
+    capture: Path,
+    keylog: Path | None,
+) -> Iterable[PacketRecord]:
+    """Retry TShark from a private temporary path without weakening OS security.
+
+    Some Linux security profiles permit TShark to read /tmp while denying direct
+    access to the same user-readable capture elsewhere. The temporary directory
+    is private to the current user and is removed automatically after iteration.
+    """
+    with tempfile.TemporaryDirectory(prefix="packetsagex-tshark-") as temp_dir:
+        temp_root = Path(temp_dir)
+        staged_capture = temp_root / f"capture{capture.suffix.lower()}"
+        shutil.copyfile(capture, staged_capture)
+        os.chmod(staged_capture, 0o600)
+
+        staged_keylog: Path | None = None
+        if keylog is not None:
+            staged_keylog = temp_root / "tls-keylog.log"
+            shutil.copyfile(keylog, staged_keylog)
+            os.chmod(staged_keylog, 0o600)
+
+        yield from backend.read(staged_capture, tls_keylog=staged_keylog)
 
 
 def load_packets(
@@ -60,10 +99,23 @@ def load_packets(
             iterator = iter(stream)
             first = next(iterator, None)
         except Exception as exc:
-            errors.append(f"{name}: {exc}")
-            if backend != "auto":
-                raise CaptureError(f"{name} backend failed: {exc}") from exc
-            continue
+            if name == "tshark" and _looks_like_permission_error(exc):
+                try:
+                    staged_stream = _staged_tshark_stream(candidate, capture, keylog)
+                    iterator = iter(staged_stream)
+                    first = next(iterator, None)
+                except Exception as staged_exc:
+                    errors.append(f"{name}: {exc}; staged retry: {staged_exc}")
+                    if backend != "auto":
+                        raise CaptureError(
+                            f"{name} backend failed: {exc}; staged retry failed: {staged_exc}"
+                        ) from staged_exc
+                    continue
+            else:
+                errors.append(f"{name}: {exc}")
+                if backend != "auto":
+                    raise CaptureError(f"{name} backend failed: {exc}") from exc
+                continue
 
         def records(
             first_record: PacketRecord | None = first,

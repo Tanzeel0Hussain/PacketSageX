@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.4.1 — 2026-09-12
+
+- Added a secure TShark path-permission compatibility retry for Linux environments where TShark can read `/tmp` but is denied access to an otherwise user-readable capture elsewhere.
+- PacketSageX now copies the capture (and optional TLS key log) into a private temporary directory with `0600` file permissions only after a TShark permission-denied error, retries analysis, and removes the temporary files automatically.
+- Added regression coverage for the TShark staging path. PacketSageX does not disable AppArmor or other host security controls.
+
 ## 0.4.0 — 2026-09-12
 
 - Added endpoint inventory with traffic scope, activity direction, packets, bytes, peers, and observed protocols.

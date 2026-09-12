@@ -12,6 +12,22 @@ class CaptureError(RuntimeError):
     pass
 
 
+def _validated_stream(
+    name: str,
+    stream: Iterable[PacketRecord],
+) -> Iterable[PacketRecord]:
+    """Yield records while converting backend read failures into CaptureError.
+
+    Capture backends are lazy iterators, so failures such as a TShark permission
+    error may happen only after iteration starts. Wrapping the iterator here lets
+    auto mode fall back cleanly when a backend cannot actually read a capture.
+    """
+    try:
+        yield from stream
+    except Exception as exc:
+        raise CaptureError(f"{name} backend failed: {exc}") from exc
+
+
 def load_packets(
     path: str | Path,
     *,
@@ -34,11 +50,34 @@ def load_packets(
         if not candidates:
             raise CaptureError(f"Unknown backend: {backend}")
 
+    errors: list[str] = []
     for name, candidate in candidates:
-        if candidate.available():
-            return name, candidate.read(capture, tls_keylog=keylog)
+        if not candidate.available():
+            continue
 
+        try:
+            stream = candidate.read(capture, tls_keylog=keylog)
+            iterator = iter(stream)
+            first = next(iterator, None)
+        except Exception as exc:
+            errors.append(f"{name}: {exc}")
+            if backend != "auto":
+                raise CaptureError(f"{name} backend failed: {exc}") from exc
+            continue
+
+        def records(
+            first_record: PacketRecord | None = first,
+            remaining: Iterable[PacketRecord] = iterator,
+            backend_name: str = name,
+        ) -> Iterable[PacketRecord]:
+            if first_record is not None:
+                yield first_record
+            yield from _validated_stream(backend_name, remaining)
+
+        return name, records()
+
+    detail = f" Backend errors: {'; '.join(errors)}" if errors else ""
     raise CaptureError(
-        "No capture backend is available. Install Wireshark/TShark (recommended) "
-        "or install PacketSageX with Scapy support."
+        "No capture backend could read the capture. Install Wireshark/TShark "
+        "(recommended) or install PacketSageX with Scapy support." + detail
     )

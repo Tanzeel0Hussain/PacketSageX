@@ -11,7 +11,7 @@ import time
 from typing import Any
 
 from .capture.scapy_backend import packet_to_record
-from .intelligence import TrafficClassifier
+from .intelligence import NetworkIntelligence, TrafficClassifier
 from .models import FlowSummary, PacketRecord
 from .reporting import write_csv, write_html, write_json
 from .security import security_findings
@@ -36,6 +36,7 @@ class LiveMonitor:
         self.flows: dict[str, _LiveFlow] = {}
         self.recent: deque[tuple[PacketRecord, str, int]] = deque(maxlen=recent_limit)
         self.classifier = TrafficClassifier()
+        self.intelligence = NetworkIntelligence()
         self._last_rate_time = self.started
         self._last_rate_packets = 0
         self._last_rate_bytes = 0
@@ -53,6 +54,7 @@ class LiveMonitor:
         self.packet_count += 1
         self.byte_count += packet.length
         self.protocols[packet.protocol] += 1
+        self.intelligence.add(packet)
         if packet.src:
             self.endpoints[packet.src] += 1
         if packet.dst:
@@ -114,6 +116,8 @@ class LiveMonitor:
             "protocols": dict(self.protocols.most_common()),
             "traffic_categories": dict(categories.most_common()),
             "top_endpoints": self.endpoints.most_common(10),
+            "dns": self.intelligence.dns_analytics(),
+            "encrypted": self.intelligence.tls_quic_intelligence(),
             "pps": self.current_pps,
             "mbps": self.current_mbps,
             "elapsed": max(0.0, time.monotonic() - self.started),
@@ -129,6 +133,7 @@ class LiveMonitor:
             for live_flow in self.flows.values()
             for packet in live_flow.samples
         ]
+        inventory = self.intelligence.endpoint_inventory()
         return {
             "schema": "packetsagex.report.v1",
             "source": str(capture_path),
@@ -141,9 +146,12 @@ class LiveMonitor:
             "flow_count": len(flows),
             "protocols": dict(self.protocols.most_common()),
             "top_endpoints": [
-                {"endpoint": name, "packets": count}
-                for name, count in self.endpoints.most_common(20)
+                {"endpoint": row["endpoint"], "packets": row["packets"], "bytes": row["bytes"]}
+                for row in inventory[:20]
             ],
+            "endpoint_inventory": inventory,
+            "dns_analytics": self.intelligence.dns_analytics(),
+            "tls_quic_intelligence": self.intelligence.tls_quic_intelligence(),
             "traffic_categories": dict(categories.most_common()),
             "flows": [flow.to_dict() for flow in flows],
             "security_findings": security_findings(sampled_packets, flows),
@@ -190,6 +198,16 @@ class LiveMonitor:
         else:
             out.append("  waiting for traffic...")
 
+        dns = snap["dns"]
+        encrypted = snap["encrypted"]
+        out.extend([
+            "",
+            (
+                f"DNS queries: {dns['query_packets']:,}   Unique domains: {dns['unique_queries']:,}   "
+                f"NXDOMAIN: {dns['nxdomain_count']:,}   TLS: {encrypted['tls_packets']:,}   QUIC: {encrypted['quic_packets']:,}"
+            ),
+        ])
+
         out.extend(["", "Top endpoints:"])
         if self.endpoints:
             out.append("  " + "   ".join(f"{name} ({count:,})" for name, count in self.endpoints.most_common(6)))
@@ -215,6 +233,8 @@ class LiveMonitor:
     def render_final(self) -> str:
         elapsed = max(0.001, time.monotonic() - self.started)
         categories = Counter(flow.summary.classification for flow in self.flows.values()).most_common(10)
+        dns = self.intelligence.dns_analytics()
+        encrypted = self.intelligence.tls_quic_intelligence()
         out = [
             "\nPacketSageX live capture stopped.",
             f"Packets : {self.packet_count:,}",
@@ -222,6 +242,8 @@ class LiveMonitor:
             f"Bytes   : {self.byte_count:,}",
             f"Runtime : {elapsed:.1f}s",
             f"Average : {self.packet_count / elapsed:.1f} packets/s",
+            f"DNS     : {dns['query_packets']:,} queries / {dns['unique_queries']:,} unique domains",
+            f"TLS/QUIC: {encrypted['tls_packets']:,} / {encrypted['quic_packets']:,} packets",
             "Traffic categories:",
         ]
         if categories:
@@ -318,7 +340,7 @@ def run_live_capture(
     """Capture until Ctrl+C, save a timestamped session report, and open it."""
     try:
         from scapy.all import PcapWriter, sniff
-    except Exception as exc:  # pragma: no cover - environment-specific
+    except Exception as exc:
         raise RuntimeError("Live capture requires Scapy. Install PacketSageX dependencies first.") from exc
 
     if refresh <= 0:
